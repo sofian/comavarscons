@@ -99,7 +99,7 @@ else:
     ARDUINO_PORT        = resolve_var('ARDUINO_PORT', getUsbTty('/dev/ttyUSB*'))
     SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME',
                                       path.expanduser('~/share/arduino/sketchbook/'))
-    AVR_HOME            = resolve_var('AVR_GCC_PATH', '')
+    AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH', '')
 
 # Get mode.
 platform = resolve_var("platform", "computer")
