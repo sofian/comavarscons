@@ -12,7 +12,9 @@
 # the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 
+from glob import glob
 import os
+from os import path
 
 # From http://code.activestate.com/recipes/502263/
 # By Paul Rubin
@@ -27,9 +29,17 @@ VARTAB = {}
 
 def resolve_var(varname, default_value):
     global VARTAB
-    # precedence: scons argument -> environment variable -> default value
+    # precedence: 
+    # 1. scons argument
+    # 2. global variable
+    # 3. environment variable
+    # 4. default value
     ret = ARGUMENTS.get(varname, None)
     VARTAB[varname] = ('arg', ret)
+    if ret == None:
+        if (varname in vars()):
+          ret = vars()[varname]
+        VARTAB[varname] = ('var', ret)
     if ret == None:
         ret = os.environ.get(varname, None)
         VARTAB[varname] = ('env', ret)
@@ -38,11 +48,14 @@ def resolve_var(varname, default_value):
         VARTAB[varname] = ('dfl', ret)
     return ret
 
+def getUsbTty(rx):
+    usb_ttys = glob(rx)
+    return usb_ttys[0] if len(usb_ttys) == 1 else None
+
 # General arguments
 
-# Get mode.
-platform = resolve_var("platform", "computer")
-mode     = resolve_var("mode", "release")
+env = Environment()
+computerOs = env['PLATFORM']
 
 TARGET = None
 
@@ -53,9 +66,8 @@ INCPATH = ""
 LIBPATH = ""
 SRCPATH = ""
 LIBS = ""
-
-if (platform == 'avr' or platform == 'arduino'):
-  AVR_GCC_PATH = "/Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/bin/"
+platform = "computer"
+mode = "release"
 
 # Import settings
 CONFIG = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'platform', 'mode']
@@ -66,6 +78,34 @@ for i in range(len(CONFIG)):
 if TARGET == None:
   TARGET = COMMAND_LINE_TARGETS[0]
 
+if computerOs == 'darwin':
+    # For MacOS X, pick up the AVR tools from within Arduino.app
+    ARDUINO_HOME        = resolve_var('ARDUINO_HOME',
+                                      '/Applications/Arduino.app/Contents/Resources/Java')
+    ARDUINO_PORT        = resolve_var('ARDUINO_PORT', getUsbTty('/dev/tty.usbserial*'))
+    SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME', '')
+    AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH',
+                                      path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
+elif computerOs == 'win32':
+    # For Windows, use environment variables.
+    ARDUINO_HOME        = resolve_var('ARDUINO_HOME', None)
+    ARDUINO_PORT        = resolve_var('ARDUINO_PORT', '')
+    SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME', '')
+    AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH',
+                                      path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
+else:
+    # For Ubuntu Linux (9.10 or higher)
+    ARDUINO_HOME        = resolve_var('ARDUINO_HOME', '/usr/share/arduino/')
+    ARDUINO_PORT        = resolve_var('ARDUINO_PORT', getUsbTty('/dev/ttyUSB*'))
+    SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME',
+                                      path.expanduser('~/share/arduino/sketchbook/'))
+    AVR_HOME            = resolve_var('AVR_GCC_PATH', '')
+
+# Get mode.
+platform = resolve_var("platform", "computer")
+mode     = resolve_var("mode", "release")
+
+# Basic compilation arguments.
 INCPATH = resolve_var('INCPATH', INCPATH).split(":")
 INCPATH = unique(INCPATH + [os.getcwd()])
 
@@ -85,9 +125,9 @@ LIBS += ["m"]
 #TARGET = os.path.basename(os.path.realpath(os.curdir))
 #assert(os.path.exists(TARGET+'.pde'))
 
-AVR_GCC_PATH = resolve_var('AVR_GCC_PATH', AVR_GCC_PATH)
+#AVR_GCC_PATH = resolve_var('AVR_GCC_PATH', AVR_GCC_PATH)
 
-AVR_BIN_PREFIX = AVR_GCC_PATH + '/avr-'
+AVR_BIN_PREFIX = path.join(AVR_GCC_PATH, 'avr-');
 
 SRCPATH = resolve_var('SRCPATH', SRCPATH).split(':');
 
@@ -120,9 +160,10 @@ if (platform == 'avr' or platform == 'arduino'):
 
   libPathFlags = ' '.join([ "-L" + x for x in LIBPATH ])
   libFlags    = ' '.join([ "-l" + x for x in LIBS ])
-  env.Append(BUILDERS = {'Elf':Builder(action=AVR_BIN_PREFIX+'gcc -mmcu=%s ' % MCU +
-                         '-Os -Wl,--gc-sections,--relax -o $TARGET $SOURCES ' + libPathFlags + ' ' + libFlags)})
-  env.Append(BUILDERS = {'Hex':Builder(action=AVR_BIN_PREFIX+'objcopy '+
+  env.Append(BUILDERS = {'Elf':Builder(action = AVR_BIN_PREFIX+'gcc -mmcu=%s ' % MCU +
+                         '-Os -Wl,--gc-sections,--relax -o $TARGET $SOURCES ' + 
+                         libPathFlags + ' ' + libFlags)})
+  env.Append(BUILDERS = {'Hex':Builder(action = AVR_BIN_PREFIX+'objcopy ' +
                          '-O ihex -R .eeprom $SOURCES $TARGET')})
   
   env.VariantDir(BUILD_DIR, ".", duplicate=0)
