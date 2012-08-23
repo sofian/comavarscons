@@ -356,7 +356,47 @@ if (platform == 'avr' or platform == 'arduino'):
     coreObjs = env.Object(coreSources)
     objs += env.CompressCore(path.join(BUILD_DIR, 'core.a'), coreObjs)
     
-    sources += BUILD_DIR + TARGET + ".cpp"
+    # add libraries
+    libCandidates = []
+    ptnLib = re.compile(r'^[ ]*#[ ]*include [<"](.*)\.h[>"]')
+    for line in open(TARGET + sketchExt):
+        result = ptnLib.search(line)
+        if not result:
+            continue
+        # Look for the library directory that contains the header.
+        filename = result.group(1) + '.h'
+        for libdir in ARDUINO_LIBS:
+            for root, dirs, files in os.walk(libdir, followlinks=True):
+                if filename in files:
+                    libCandidates.append(path.basename(root))
+    
+    # Hack. In version 20 of the Arduino IDE, the Ethernet library depends
+    # implicitly on the SPI library.
+    if ARDUINO_VER >= 20 and 'Ethernet' in libCandidates:
+        libCandidates.append('SPI')
+    
+    all_libs_sources = []
+    for index, orig_lib_dir in enumerate(ARDUINO_LIBS):
+        lib_dir = BUILD_DIR + 'lib_%02d' % index
+        env.VariantDir(lib_dir, orig_lib_dir)
+        for libPath in ifilter(path.isdir, glob(path.join(orig_lib_dir, '*'))):
+            libName = path.basename(libPath)
+            if not libName in libCandidates:
+                continue
+            env.Append(CPPPATH = libPath.replace(orig_lib_dir, lib_dir))
+            lib_sources = gatherSources(libPath)
+            utilDir = path.join(libPath, 'utility')
+            if path.exists(utilDir) and path.isdir(utilDir):
+                lib_sources += gatherSources(utilDir)
+                env.Append(CPPPATH = utilDir.replace(orig_lib_dir, lib_dir))
+            lib_sources = (x.replace(orig_lib_dir, lib_dir) for x in lib_sources)
+            all_libs_sources.extend(lib_sources)
+    
+    #arduinoSources = [BUILD_DIR + TARGET + ".cpp"]
+    arduinoSources = all_libs_sources
+    
+    objs += env.Object(arduinoSources)
+    #print all_libs_sources
 
   env.Elf(BUILD_DIR + TARGET + '.elf', objs)
 #  env.Program(target = BUILD_DIR + TARGET + '.elf', source = sources, 
