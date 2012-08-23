@@ -13,8 +13,11 @@
 # (at your option) any later version.
 
 from glob import glob
+import sys
+import re
 import os
 from os import path
+from pprint import pprint
 
 # From http://code.activestate.com/recipes/502263/
 # By Paul Rubin
@@ -59,18 +62,25 @@ computerOs = env['PLATFORM']
 
 TARGET = None
 
-MCU = 'atmega168'
-F_CPU = 16000000
-AVR_GCC_PATH = ""
-INCPATH = ""
-LIBPATH = ""
-SRCPATH = ""
-LIBS = ""
-platform = "computer"
-mode = "release"
+#MCU = 'atmega168'
+#F_CPU = 16000000
+#AVR_GCC_PATH = ""
+#INCPATH = ""
+#LIBPATH = ""
+#SRCPATH = ""
+#LIBS = ""
+#platform = "computer"
+#mode = "release"
 
 # Import settings
+
+# Get mode.
 CONFIG = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'platform', 'mode']
+for i in range(len(CONFIG)):
+  vars()[CONFIG[i]] = None
+
+platform = ARGUMENTS.get("platform", "computer")
+mode     = ARGUMENTS.get("mode", "release")
 conf = SConscript(dirs='.', exports=CONFIG)
 for i in range(len(CONFIG)):
   vars()[CONFIG[i]] = conf[i]
@@ -86,6 +96,7 @@ if computerOs == 'darwin':
     SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME', '')
     AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH',
                                       path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
+    AVRDUDE_CONF        = path.join(ARDUINO_HOME, 'hardware/tools/avr/etc/avrdude.conf')
 elif computerOs == 'win32':
     # For Windows, use environment variables.
     ARDUINO_HOME        = resolve_var('ARDUINO_HOME', None)
@@ -93,6 +104,7 @@ elif computerOs == 'win32':
     SKETCHBOOK_HOME     = resolve_var('SKETCHBOOK_HOME', '')
     AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH',
                                       path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
+    AVRDUDE_CONF        = path.join(ARDUINO_HOME, 'hardware/tools/avr/etc/avrdude.conf')
 else:
     # For Ubuntu Linux (9.10 or higher)
     ARDUINO_HOME        = resolve_var('ARDUINO_HOME', '/usr/share/arduino/')
@@ -101,35 +113,31 @@ else:
                                       path.expanduser('~/share/arduino/sketchbook/'))
     AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH', '')
 
-# Get mode.
-platform = resolve_var("platform", "computer")
-mode     = resolve_var("mode", "release")
-
 # Basic compilation arguments.
-INCPATH = resolve_var('INCPATH', INCPATH).split(":")
+INCPATH = resolve_var('INCPATH', "").split(":")
 INCPATH = unique(INCPATH + [os.getcwd()])
 
 # AVR arguments
-MCU = resolve_var('MCU', MCU)
-F_CPU = resolve_var('F_CPU', F_CPU)
+MCU = resolve_var('MCU', "atmega168")
+F_CPU = resolve_var('F_CPU', 16000000)
 
 # Shared library arguments.
-LIBS = resolve_var('LIBS', LIBS).split(',')
-LIBPATH = resolve_var('LIBPATH', LIBPATH).split(':')
-
-BUILD_DIR = "build/" + platform + "/"
-
+LIBS = resolve_var('LIBS', "").split(',')
+LIBPATH = resolve_var('LIBPATH', "").split(':')
 LIBS += ["m"]
+
+# Remove empty items
+LIBS = filter(None, LIBS)
+LIBPATH = filter(None, LIBPATH)
 
 # There should be a file with the same name as the folder and with the extension .pde
 #TARGET = os.path.basename(os.path.realpath(os.curdir))
 #assert(os.path.exists(TARGET+'.pde'))
 
-#AVR_GCC_PATH = resolve_var('AVR_GCC_PATH', AVR_GCC_PATH)
-
 AVR_BIN_PREFIX = path.join(AVR_GCC_PATH, 'avr-');
 
-SRCPATH = resolve_var('SRCPATH', SRCPATH).split(':');
+# Fetch sources.
+SRCPATH = resolve_var('SRCPATH', "").split(':');
 
 sources = []
 for dir in SRCPATH:
@@ -137,10 +145,83 @@ for dir in SRCPATH:
 	sources += Glob(dir + "/*.cxx")
 	sources += Glob(dir + "/*.c")
 
-# Remove empty items
-LIBS = filter(None, LIBS)
-LIBPATH = filter(None, LIBPATH)
+BUILD_DIR = "build/" + platform + "/"
 
+# Arduino-specific stuff ##############################################################
+if platform == 'arduino':
+  ARDUINO_BOARD   = resolve_var('ARDUINO_BOARD', 'atmega328')
+  ARDUINO_VER     = resolve_var('ARDUINO_VER', 0) # Default to 0 if nothing is specified
+  RST_TRIGGER     = resolve_var('RST_TRIGGER', None) # use built-in pulseDTR() by default
+  EXTRA_LIB       = resolve_var('EXTRA_LIB', None) # handy for adding another arduino-lib dir
+  
+  pprint(VARTAB, indent = 4)
+  
+  if not ARDUINO_HOME:
+      print 'ARDUINO_HOME must be defined.'
+      raise KeyError('ARDUINO_HOME')
+  
+  ARDUINO_CONF = path.join(ARDUINO_HOME, 'hardware/arduino/boards.txt')
+  # check given board name, ARDUINO_BOARD is valid one
+  arduino_boards = path.join(ARDUINO_HOME,'hardware/*/boards.txt')
+  custom_boards = path.join(SKETCHBOOK_HOME,'hardware/*/boards.txt')
+  board_files = glob(arduino_boards) + glob(custom_boards)
+  ptnBoard = re.compile(r'^([^#]*)\.name=(.*)')
+  boards = {}
+  for bf in board_files:
+      for line in open(bf):
+          result = ptnBoard.match(line)
+          if result:
+              boards[result.group(1)] = (result.group(2), bf)
+  
+  if ARDUINO_BOARD not in boards:
+      print "ERROR! the given board name, %s is not in the supported board list:" % ARDUINO_BOARD
+      print "all available board names are:"
+      for name, description in boards.iteritems():
+          print "\t%s for %s" % (name.ljust(14), description[0])
+      #print "however, you may edit %s to add a new board." % ARDUINO_CONF
+      sys.exit(-1)
+  
+  ARDUINO_CONF = boards[ARDUINO_BOARD][1]
+  
+  def getBoardConf(conf, default = None):
+      for line in open(ARDUINO_CONF):
+          line = line.strip()
+          if '=' in line:
+              key, value = line.split('=')
+              if key == '.'.join([ARDUINO_BOARD, conf]):
+                  return value
+      ret = default
+      if ret == None:
+          print "ERROR! can't find %s in %s" % (conf, ARDUINO_CONF)
+          assert(False)
+      return ret
+  
+  ARDUINO_CORE = path.join(ARDUINO_HOME, path.dirname(ARDUINO_CONF),
+                           'cores/', getBoardConf('build.core', 'arduino'))
+  ARDUINO_SKEL = path.join(ARDUINO_CORE, 'main.cpp')
+  
+  if ARDUINO_VER == 0:
+      arduinoHeader = path.join(ARDUINO_CORE, 'Arduino.h')
+      print "No Arduino version specified. Discovered version",
+      if path.exists(arduinoHeader):
+          print "100 or above"
+          ARDUINO_VER = 100
+      else:
+          print "0023 or below"
+          ARDUINO_VER = 23
+  else:
+      print "Arduino version " + ARDUINO_VER + " specified"
+
+  ARDUINO_LIBS = [path.join(ARDUINO_HOME, 'libraries')]
+  if EXTRA_LIB:
+      ARDUINO_LIBS.append(EXTRA_LIB)
+  if SKETCHBOOK_HOME:
+      ARDUINO_LIBS.append(path.join(SKETCHBOOK_HOME, 'libraries'))
+  
+  # Override MCU and F_CPU
+  MCU = resolve_var('MCU', getBoardConf('build.mcu'))
+  F_CPU = resolve_var('F_CPU', getBoardConf('build.f_cpu'))
+  
 # Create environment and set default configurations ###################################
 if (platform == 'avr' or platform == 'arduino'):
   cFlags = ['-ffunction-sections', '-fdata-sections', '-fno-exceptions',
