@@ -1,3 +1,17 @@
+# SCons script for cross-platform building (computer, avr, arduino)
+# https://github.com/sofian/comavarscons
+#
+# Copyright (C) 2012 by Sofian Audry <info --A_T-- sofianaudry --D_O_T-- com>
+#
+# Based on code from:
+# http://github.com/suapapa/arscons
+# Copyright (C) 2010-2012 by Homin Lee <homin.lee@suapapa.net>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+
 import os
 
 # From http://code.activestate.com/recipes/502263/
@@ -9,11 +23,26 @@ def unique(seq, keepstr=True):
   seen = []
   return t(c for c in seq if not (c in seen or seen.append(c)))
 
+VARTAB = {}
+
+def resolve_var(varname, default_value):
+    global VARTAB
+    # precedence: scons argument -> environment variable -> default value
+    ret = ARGUMENTS.get(varname, None)
+    VARTAB[varname] = ('arg', ret)
+    if ret == None:
+        ret = os.environ.get(varname, None)
+        VARTAB[varname] = ('env', ret)
+    if ret == None:
+        ret = default_value
+        VARTAB[varname] = ('dfl', ret)
+    return ret
+
 # General arguments
 
 # Get mode.
-platform = ARGUMENTS.get("platform", "computer")
-mode     = ARGUMENTS.get("mode", "release")
+platform = resolve_var("platform", "computer")
+mode     = resolve_var("mode", "release")
 
 TARGET = None
 
@@ -37,16 +66,16 @@ for i in range(len(CONFIG)):
 if TARGET == None:
   TARGET = COMMAND_LINE_TARGETS[0]
 
-INCPATH = ARGUMENTS.get('INCPATH', INCPATH).split(":")
+INCPATH = resolve_var('INCPATH', INCPATH).split(":")
 INCPATH = unique(INCPATH + [os.getcwd()])
 
 # AVR arguments
-MCU = ARGUMENTS.get('MCU', MCU)
-F_CPU = ARGUMENTS.get('F_CPU', F_CPU)
+MCU = resolve_var('MCU', MCU)
+F_CPU = resolve_var('F_CPU', F_CPU)
 
 # Shared library arguments.
-LIBS = ARGUMENTS.get('LIBS', LIBS).split(',')
-LIBPATH = ARGUMENTS.get('LIBPATH', LIBPATH).split(':')
+LIBS = resolve_var('LIBS', LIBS).split(',')
+LIBPATH = resolve_var('LIBPATH', LIBPATH).split(':')
 
 BUILD_DIR = "build/" + platform + "/"
 
@@ -56,11 +85,11 @@ LIBS += ["m"]
 #TARGET = os.path.basename(os.path.realpath(os.curdir))
 #assert(os.path.exists(TARGET+'.pde'))
 
-AVR_GCC_PATH = ARGUMENTS.get('AVR_GCC_PATH', AVR_GCC_PATH)
+AVR_GCC_PATH = resolve_var('AVR_GCC_PATH', AVR_GCC_PATH)
 
 AVR_BIN_PREFIX = AVR_GCC_PATH + '/avr-'
 
-SRCPATH = ARGUMENTS.get('SRCPATH', SRCPATH).split(':');
+SRCPATH = resolve_var('SRCPATH', SRCPATH).split(':');
 
 sources = []
 for dir in SRCPATH:
