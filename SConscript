@@ -1,10 +1,20 @@
-CONFIG = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'platform', 'mode']
+# Don't change these lines
+Import(['CONFIG', 'platform', 'mode'])
+for (k, v) in CONFIG.items():
+  vars()[k] = v
+# ------------------------
 
-Import(CONFIG)
+# Begin: editable zone #######################################
 
 TARGET = "HelloWorld"
 if (platform == 'avr'):
   MCU = 'atmega1280'
   F_CPU = 16000000
 
-Return(CONFIG)
+# End:   editable zone #######################################
+
+# Don't change these lines
+for (k, v) in CONFIG.items():
+  CONFIG[k] = vars()[k]
+Return('CONFIG')
+# ------------------------

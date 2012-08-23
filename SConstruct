@@ -62,29 +62,22 @@ computerOs = env['PLATFORM']
 
 TARGET = None
 
-#MCU = 'atmega168'
-#F_CPU = 16000000
-#AVR_GCC_PATH = ""
-#INCPATH = ""
-#LIBPATH = ""
-#SRCPATH = ""
-#LIBS = ""
-#platform = "computer"
-#mode = "release"
-
 # Import settings
 
-# Get mode.
-CONFIG = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'platform', 'mode']
-for i in range(len(CONFIG)):
-  vars()[CONFIG[i]] = None
+CONFIG = {}
+for key in ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS']:
+  CONFIG[key] = None
 
+# Get platform and mode.
 platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
-conf = SConscript(dirs='.', exports=CONFIG)
-for i in range(len(CONFIG)):
-  vars()[CONFIG[i]] = conf[i]
 
+# Get variables from SConscript
+CONFIG = SConscript(dirs='.', exports=['CONFIG', 'platform', 'mode'])
+for (k, v) in CONFIG.items():
+  vars()[k] = v
+
+# Get target from commandline (unless specified in SConscript)
 if TARGET == None:
   TARGET = COMMAND_LINE_TARGETS[0]
 
