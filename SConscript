@@ -10,6 +10,9 @@ TARGET = "HelloWorld"
 if (platform == 'avr'):
   MCU = 'atmega1280'
   F_CPU = 16000000
+elif (platform == 'arduino'):
+  ARDUINO_BOARD = 'mega'
+  print "Board: " + ARDUINO_BOARD
 
 # End:   editable zone #######################################
 

@@ -29,9 +29,11 @@ def unique(seq, keepstr=True):
   return t(c for c in seq if not (c in seen or seen.append(c)))
 
 VARTAB = {}
+CONFIG = {}
 
 def resolve_var(varname, default_value):
     global VARTAB
+    global CONFIG
     # precedence: 
     # 1. scons argument
     # 2. global variable
@@ -40,8 +42,8 @@ def resolve_var(varname, default_value):
     ret = ARGUMENTS.get(varname, None)
     VARTAB[varname] = ('arg', ret)
     if ret == None:
-        if (varname in vars()):
-          ret = vars()[varname]
+        if (varname in CONFIG):
+          ret = CONFIG[varname]
         VARTAB[varname] = ('var', ret)
     if ret == None:
         ret = os.environ.get(varname, None)
@@ -62,21 +64,20 @@ computerOs = env['PLATFORM']
 
 TARGET = None
 
-# Import settings
-
-CONFIG = {}
-for key in ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS']:
-  CONFIG[key] = None
-
 # Get platform and mode.
 platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
+
+# Import settings
+for key in ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD']:
+  CONFIG[key] = None
 
 # Get variables from SConscript
 CONFIG = SConscript(dirs='.', exports=['CONFIG', 'platform', 'mode'])
 for (k, v) in CONFIG.items():
   vars()[k] = v
 
+print "Board s.: " + ARDUINO_BOARD
 # Get target from commandline (unless specified in SConscript)
 if TARGET == None:
   TARGET = COMMAND_LINE_TARGETS[0]
@@ -111,7 +112,7 @@ INCPATH = resolve_var('INCPATH', "").split(":")
 INCPATH = unique(INCPATH + [os.getcwd()])
 
 # AVR arguments
-MCU = resolve_var('MCU', "atmega168")
+MCU   = resolve_var('MCU', "atmega168")
 F_CPU = resolve_var('F_CPU', 16000000)
 
 # Shared library arguments.
