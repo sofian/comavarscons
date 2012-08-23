@@ -288,10 +288,14 @@ if platform == 'arduino':
 
 # Get sources #########################################################################
 sources = []
-for dir in SRCPATH:
-	sources += Glob(dir + "/*.cpp")
-	sources += Glob(dir + "/*.cxx")
-	sources += Glob(dir + "/*.c")
+for index, d in enumerate(SRCPATH):
+  if (d == None or d == ""):
+    continue
+  srcdir = BUILD_DIR + 'src_%02d' % index
+  env.VariantDir(srcdir, d)
+  sources += Glob(d + "/*.cpp")
+  sources += Glob(d + "/*.cxx")
+  sources += Glob(d + "/*.c")
 
 # Create environment and set default configurations ###################################
 
@@ -304,7 +308,7 @@ if (platform == 'avr' or platform == 'arduino'):
   if platform == 'arduino':
     cppDefines['ARDUINO'] = ARDUINO_VER
   
-  env = Environment(CC = AVR_BIN_PREFIX + 'gcc',
+  env.Replace(CC = AVR_BIN_PREFIX + 'gcc',
              CXX = AVR_BIN_PREFIX + 'g++',
              AS = AVR_BIN_PREFIX + 'gcc',
              CPPPATH = INCPATH,
@@ -330,11 +334,13 @@ if (platform == 'avr' or platform == 'arduino'):
   
   env.VariantDir(BUILD_DIR, ".", duplicate=0)
   
+  # Local sources (in ".")
   sources += Glob(BUILD_DIR + "*.cpp")
   sources += Glob(BUILD_DIR + "*.cxx")
   sources += Glob(BUILD_DIR + "*.c")
   
-  objs = env.Object(sources)
+  objs  = env.Object([BUILD_DIR + TARGET + ".cpp"])
+  objs += env.Object(sources)
 
   if platform == 'arduino':
     hwVariant = path.join(ARDUINO_HOME, 'hardware/arduino/variants',
@@ -354,7 +360,6 @@ if (platform == 'avr' or platform == 'arduino'):
     coreSources = [x.replace(ARDUINO_CORE, coreVariantDir) for x
                    in coreSources if path.basename(x) != 'main.cpp']
     coreObjs = env.Object(coreSources)
-    objs += env.CompressCore(path.join(BUILD_DIR, 'core.a'), coreObjs)
     
     # add libraries
     libCandidates = []
@@ -392,11 +397,8 @@ if (platform == 'avr' or platform == 'arduino'):
             lib_sources = (x.replace(orig_lib_dir, lib_dir) for x in lib_sources)
             all_libs_sources.extend(lib_sources)
     
-    #arduinoSources = [BUILD_DIR + TARGET + ".cpp"]
-    arduinoSources = all_libs_sources
-    
-    objs += env.Object(arduinoSources)
-    #print all_libs_sources
+    objs += env.Object(all_libs_sources)
+    objs += env.CompressCore(path.join(BUILD_DIR, 'core.a'), coreObjs)
 
   env.Elf(BUILD_DIR + TARGET + '.elf', objs)
 #  env.Program(target = BUILD_DIR + TARGET + '.elf', source = sources, 

@@ -11,8 +11,12 @@ if (platform == 'avr'):
   MCU = 'atmega1280'
   F_CPU = 16000000
   AVR_GCC_PATH = '/Applications/Arduino.app/Contents/Resources/Java/hardware/tools/avr/bin'
+
 elif (platform == 'arduino'):
   ARDUINO_BOARD = 'mega'
+  TARGET = "HelloArduino"
+  INCPATH = "extra"
+  SRCPATH = "extra"
 
 # End:   editable zone #######################################
 

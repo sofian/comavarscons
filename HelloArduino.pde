@@ -1,8 +1,9 @@
 #include <EEPROM.h>
+#include "Extra.h"
 
 void setup() {
   pinMode(13, OUTPUT);
-  EEPROM.write(0, 'x');
+  EEPROM.write(0, foo(2));
 }
 
 void loop() {
