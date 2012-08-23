@@ -77,7 +77,6 @@ CONFIG = SConscript(dirs='.', exports=['CONFIG', 'platform', 'mode'])
 for (k, v) in CONFIG.items():
   vars()[k] = v
 
-print "Board s.: " + ARDUINO_BOARD
 # Get target from commandline (unless specified in SConscript)
 if TARGET == None:
   TARGET = COMMAND_LINE_TARGETS[0]
