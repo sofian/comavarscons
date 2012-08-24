@@ -149,7 +149,7 @@ platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
 
 # Import settings
-CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBS', 'RST_TRIGGER', 'AVRDUDE_CONF', 'EXTRA_SOURCES']
+CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBRARIES_PATH', 'ARDUINO_EXTRA_LIBRARIES', 'RST_TRIGGER', 'AVRDUDE_CONF', 'EXTRA_SOURCES']
 for k in CONFIG_VARS:
   CONFIG[k] = None
 
@@ -244,8 +244,9 @@ if platform == 'arduino':
   ARDUINO_BOARD   = resolve_var('ARDUINO_BOARD', 'atmega328')
   ARDUINO_VER     = resolve_var('ARDUINO_VER', 0) # Default to 0 if nothing is specified
   RST_TRIGGER     = resolve_var('RST_TRIGGER', None) # use built-in pulseDTR() by default
-  ARDUINO_EXTRA_LIBS       = resolve_var('ARDUINO_EXTRA_LIBS', None) # handy for adding another arduino-lib dir
-  
+  ARDUINO_EXTRA_LIBRARIES_PATH = resolve_var('ARDUINO_EXTRA_LIBRARIES_PATH', "") # handy for adding another arduino-lib dir
+  ARDUINO_EXTRA_LIBRARIES = resolve_var('ARDUINO_EXTRA_LIBRARIES', "") # handy for explicitely specifying needed libraries
+    
   pprint(VARTAB, indent = 4)
   
   if not ARDUINO_HOME:
@@ -305,8 +306,8 @@ if platform == 'arduino':
       print "Arduino version " + ARDUINO_VER + " specified"
 
   ARDUINO_LIBS = [path.join(ARDUINO_HOME, 'libraries')]
-  if ARDUINO_EXTRA_LIBS:
-      ARDUINO_LIBS.append(ARDUINO_EXTRA_LIBS)
+  if ARDUINO_EXTRA_LIBRARIES_PATH:
+      ARDUINO_LIBS += ARDUINO_EXTRA_LIBRARIES_PATH.split(":")
   if ARDUINO_SKETCHBOOK_HOME:
       ARDUINO_LIBS.append(path.join(ARDUINO_SKETCHBOOK_HOME, 'libraries'))
   
@@ -394,7 +395,7 @@ if (platform == 'avr' or platform == 'arduino'):
     coreObjs = env.Object(coreSources)
     
     # add libraries
-    libCandidates = []
+    libCandidates = ARDUINO_EXTRA_LIBRARIES.split(",")
     ptnLib = re.compile(r'^[ ]*#[ ]*include [<"](.*)\.h[>"]')
     for line in open(TARGET + sketchExt):
         result = ptnLib.search(line)
@@ -420,6 +421,7 @@ if (platform == 'avr' or platform == 'arduino'):
             libName = path.basename(libPath)
             if not libName in libCandidates:
                 continue
+            print libName
             env.Append(CPPPATH = libPath.replace(orig_lib_dir, lib_dir))
             lib_sources = gatherSources(libPath)
             utilDir = path.join(libPath, 'utility')
