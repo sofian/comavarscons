@@ -143,7 +143,8 @@ platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
 
 # Import settings
-for k in ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'ARDUINO_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIB', 'RST_TRIGGER', 'AVRDUDE_CONF']:
+CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIB', 'RST_TRIGGER', 'AVRDUDE_CONF']
+for k in CONFIG_VARS:
   CONFIG[k] = None
 
 # Get variables from SConscript
@@ -160,7 +161,7 @@ if platform == 'arduino':
       # For MacOS X, pick up the AVR tools from within Arduino.app
       ARDUINO_HOME        = resolve_var('ARDUINO_HOME',
                                         '/Applications/Arduino.app/Contents/Resources/Java')
-      ARDUINO_PORT        = resolve_var('ARDUINO_PORT', getUsbTty('/dev/tty.usbserial*'))
+      AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', getUsbTty('/dev/tty.usbserial*'))
       ARDUINO_SKETCHBOOK_HOME     = resolve_var('ARDUINO_SKETCHBOOK_HOME', '')
       AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH',
                                         path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
@@ -168,7 +169,7 @@ if platform == 'arduino':
   elif computerOs == 'win32':
       # For Windows, use environment variables.
       ARDUINO_HOME        = resolve_var('ARDUINO_HOME', None)
-      ARDUINO_PORT        = resolve_var('ARDUINO_PORT', '')
+      AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', '')
       ARDUINO_SKETCHBOOK_HOME     = resolve_var('ARDUINO_SKETCHBOOK_HOME', '')
       AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH',
                                         path.join(ARDUINO_HOME, 'hardware/tools/avr/bin'))
@@ -176,10 +177,18 @@ if platform == 'arduino':
   else:
       # For Ubuntu Linux (9.10 or higher)
       ARDUINO_HOME        = resolve_var('ARDUINO_HOME', '/usr/share/arduino/')
-      ARDUINO_PORT        = resolve_var('ARDUINO_PORT', getUsbTty('/dev/ttyUSB*'))
+      AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', getUsbTty('/dev/ttyUSB*'))
       ARDUINO_SKETCHBOOK_HOME     = resolve_var('ARDUINO_SKETCHBOOK_HOME',
                                         path.expanduser('~/share/arduino/sketchbook/'))
       AVR_GCC_PATH        = resolve_var('AVR_GCC_PATH', '')
+
+if platform != 'computer':
+  if computerOs == 'darwin':
+      AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', getUsbTty('/dev/tty.usbserial*'))
+  elif computerOs == 'win32':
+      AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', '')
+  else:
+      AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', getUsbTty('/dev/ttyUSB*'))
 
 # Basic compilation arguments.
 INCPATH = resolve_var('INCPATH', "").split(":")
@@ -207,8 +216,10 @@ SRCPATH = resolve_var('SRCPATH', "").split(':');
 
 if platform != 'computer':
   AVR_BIN_PREFIX = path.join(AVR_GCC_PATH, 'avr-');
+  UPLOAD_PROTOCOL = resolve_var('UPLOAD_PROTOCOL', 'stk500')
+  UPLOAD_SPEED = resolve_var('UPLOAD_PROTOCOL', 57600)
 
-BUILD_DIR = "build/" + platform + "/"
+BUILD_DIR = path.join("build", platform) + "/"
 
 # Arduino-specific stuff ##############################################################
 if platform == 'arduino':
@@ -284,6 +295,8 @@ if platform == 'arduino':
   # Override MCU and F_CPU
   MCU = resolve_var('MCU', getBoardConf('build.mcu'))
   F_CPU = resolve_var('F_CPU', getBoardConf('build.f_cpu'))
+  UPLOAD_PROTOCOL = getBoardConf('upload.protocol')
+  UPLOAD_SPEED = getBoardConf('upload.speed')
   sketchExt = '.ino' if path.exists(TARGET + '.ino') else '.pde'
 
 # Get sources #########################################################################
@@ -334,13 +347,6 @@ if (platform == 'avr' or platform == 'arduino'):
   
   env.VariantDir(BUILD_DIR, ".", duplicate=0)
   
-  # Local sources (in ".")
-  sources += Glob(BUILD_DIR + "*.cpp")
-  sources += Glob(BUILD_DIR + "*.cxx")
-  sources += Glob(BUILD_DIR + "*.c")
-  
-  objs  = env.Object([BUILD_DIR + TARGET + ".cpp"])
-  objs += env.Object(sources)
 
   if platform == 'arduino':
     hwVariant = path.join(ARDUINO_HOME, 'hardware/arduino/variants',
@@ -350,8 +356,17 @@ if (platform == 'avr' or platform == 'arduino'):
     
     # Convert sketch(.pde) to cpp
     env.Processing(BUILD_DIR + TARGET + '.cpp', BUILD_DIR + TARGET + sketchExt)
-    sources += [BUILD_DIR + TARGET + '.cpp']
+    #sources += [BUILD_DIR + TARGET + '.cpp']
 
+  # Local sources (in ".")
+  sources += Glob(BUILD_DIR + "*.cpp")
+  sources += Glob(BUILD_DIR + "*.cxx")
+  sources += Glob(BUILD_DIR + "*.c")
+  
+  #objs  = env.Object([BUILD_DIR + TARGET + ".cpp"])
+  objs  = env.Object(sources)
+
+  if platform == 'arduino':
     # add arduino core sources
     coreVariantDir = path.join(BUILD_DIR, 'core')
     env.Append(CPPPATH = coreVariantDir)
@@ -412,6 +427,40 @@ if (platform == 'avr' or platform == 'arduino'):
   
   env.Command(None, BUILD_DIR + TARGET+'.hex', AVR_BIN_PREFIX+'size --target=ihex $SOURCE')
 
+  # Reset
+  def pulseDTR(target, source, env):
+      import serial
+      import time
+      ser = serial.Serial(AVRDUDE_PORT)
+      ser.setDTR(1)
+      time.sleep(0.5)
+      ser.setDTR(0)
+      ser.close()
+  
+  if AVRDUDE_PORT == None:
+    print "No avrdude port specified. Make sure the USB device is plugged."
+    
+  else:
+    if RST_TRIGGER:
+        reset_cmd = '%s %s' % (RST_TRIGGER, AVRDUDE_PORT)
+    else:
+        reset_cmd = pulseDTR
+    
+    # Upload
+    if UPLOAD_PROTOCOL == 'stk500':
+        UPLOAD_PROTOCOL = 'stk500v1'
+    
+    avrdudeOpts = ['-V', '-F', '-c %s' % UPLOAD_PROTOCOL, '-b %s' % UPLOAD_SPEED,
+                   '-p %s' % MCU, '-P %s' % AVRDUDE_PORT, '-U flash:w:$SOURCES']
+    if AVRDUDE_CONF:
+        avrdudeOpts.append('-C %s' % AVRDUDE_CONF)
+    
+    fuse_cmd = '%s %s' % (path.join(path.dirname(AVR_BIN_PREFIX), 'avrdude'),
+                          ' '.join(avrdudeOpts))
+    
+    upload = env.Alias('upload', BUILD_DIR + TARGET + '.hex', [reset_cmd, fuse_cmd])
+    env.AlwaysBuild(upload)
+
 # Computer mode (ie. non-avr) #########################################################
 else:
   env = Environment()
@@ -427,10 +476,12 @@ else:
   
   env.Program(BUILD_DIR + TARGET, sources, LIBS = LIBS, CPPPATH = INCPATH, LIBPATH = LIBPATH)
 
-
   #objects = env.StaticObject(source = sources)
 
   # Peut etre une erreur: on devrait construire des OBJETS (?)
   #lib = env.Library(target = target, source = sources)
 
 #execfile("../../tools/scons/SConstruct")
+
+# Clean build directory
+env.Clean('all', BUILD_DIR)
