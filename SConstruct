@@ -143,7 +143,7 @@ platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
 
 # Import settings
-CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIB', 'RST_TRIGGER', 'AVRDUDE_CONF']
+CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBS', 'RST_TRIGGER', 'AVRDUDE_CONF']
 for k in CONFIG_VARS:
   CONFIG[k] = None
 
@@ -238,7 +238,7 @@ if platform == 'arduino':
   ARDUINO_BOARD   = resolve_var('ARDUINO_BOARD', 'atmega328')
   ARDUINO_VER     = resolve_var('ARDUINO_VER', 0) # Default to 0 if nothing is specified
   RST_TRIGGER     = resolve_var('RST_TRIGGER', None) # use built-in pulseDTR() by default
-  ARDUINO_EXTRA_LIB       = resolve_var('ARDUINO_EXTRA_LIB', None) # handy for adding another arduino-lib dir
+  ARDUINO_EXTRA_LIBS       = resolve_var('ARDUINO_EXTRA_LIBS', None) # handy for adding another arduino-lib dir
   
   pprint(VARTAB, indent = 4)
   
@@ -299,8 +299,8 @@ if platform == 'arduino':
       print "Arduino version " + ARDUINO_VER + " specified"
 
   ARDUINO_LIBS = [path.join(ARDUINO_HOME, 'libraries')]
-  if ARDUINO_EXTRA_LIB:
-      ARDUINO_LIBS.append(ARDUINO_EXTRA_LIB)
+  if ARDUINO_EXTRA_LIBS:
+      ARDUINO_LIBS.append(ARDUINO_EXTRA_LIBS)
   if ARDUINO_SKETCHBOOK_HOME:
       ARDUINO_LIBS.append(path.join(ARDUINO_SKETCHBOOK_HOME, 'libraries'))
   
