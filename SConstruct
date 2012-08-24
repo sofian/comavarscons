@@ -219,7 +219,19 @@ if platform != 'computer':
   UPLOAD_PROTOCOL = resolve_var('UPLOAD_PROTOCOL', 'stk500')
   UPLOAD_SPEED = resolve_var('UPLOAD_PROTOCOL', 57600)
 
-BUILD_DIR = path.join("build", platform) + "/"
+# Define build directory.
+BUILD_DIR  = "build/"
+BUILD_DIR += platform + "_"
+
+if platform == "computer":
+  BUILD_DIR += computerOs
+elif platform == "arduino":
+  BUILD_DIR += ARDUINO_BOARD
+elif platform == "avr":
+  BUILD_DIR += MCU# + "_" + str(F_CPU)
+
+BUILD_DIR += "/" + mode + "/"
+#BUILD_DIR = path.join("build", "_".join(platform, mode, 
 
 # Arduino-specific stuff ##############################################################
 if platform == 'arduino':
