@@ -126,10 +126,16 @@ def fnCompressCore(target, source, env):
     for file in core_files:
         run([AVR_BIN_PREFIX + 'ar', 'rcs', str(target[0]), file])
 
-def gatherSources(srcpath):
+def gatherSources(srcpath, recursive = False):
     ptnSource = re.compile(r'\.(?:c(?:pp)?|S)$')
-    return [path.join(srcpath, f) for f
-            in os.listdir(srcpath) if ptnSource.search(f)]
+    sources = []
+    for f in os.listdir(srcpath):
+      fullpath = path.join(srcpath, f)
+      if path.isdir(fullpath) and recursive:
+        sources += gatherSources(fullpath, True)
+      if path.isfile(fullpath) and ptnSource.search(f):
+        sources += [fullpath]
+    return sources
 
 # General arguments
 
@@ -143,7 +149,7 @@ platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
 
 # Import settings
-CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBS', 'RST_TRIGGER', 'AVRDUDE_CONF']
+CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBS', 'RST_TRIGGER', 'AVRDUDE_CONF', 'EXTRA_SOURCES']
 for k in CONFIG_VARS:
   CONFIG[k] = None
 
@@ -318,9 +324,9 @@ for index, d in enumerate(SRCPATH):
     continue
   srcdir = BUILD_DIR + 'src_%02d' % index
   env.VariantDir(srcdir, d)
-  sources += Glob(d + "/*.cpp")
-  sources += Glob(d + "/*.cxx")
-  sources += Glob(d + "/*.c")
+  src = gatherSources(d, True)
+  src = [x.replace(d, srcdir + "/") for x in src]
+  sources += src
 
 # Create environment and set default configurations ###################################
 
@@ -357,8 +363,7 @@ if (platform == 'avr' or platform == 'arduino'):
   env.Append(BUILDERS = {'Hex': Builder(action = AVR_BIN_PREFIX+'objcopy ' +
                                 '-O ihex -R .eeprom $SOURCES $TARGET')})
   
-  env.VariantDir(BUILD_DIR, ".", duplicate=0)
-  
+  env.VariantDir(BUILD_DIR, ".")
 
   if platform == 'arduino':
     hwVariant = path.join(ARDUINO_HOME, 'hardware/arduino/variants',
@@ -428,9 +433,6 @@ if (platform == 'avr' or platform == 'arduino'):
     objs += env.CompressCore(path.join(BUILD_DIR, 'core.a'), coreObjs)
 
   env.Elf(BUILD_DIR + TARGET + '.elf', objs)
-#  env.Program(target = BUILD_DIR + TARGET + '.elf', source = sources, 
-#  					  CPPFLAGS = ['-mmcu=%s' % MCU, '-Os'],
-#  						LINKFLAGS = "-Wl,--gc-sections,--relax", )
   env.Hex(BUILD_DIR + TARGET + '.hex', BUILD_DIR + TARGET + '.elf')
   
   if platform == 'arduino':
@@ -438,7 +440,7 @@ if (platform == 'avr' or platform == 'arduino'):
     print "maximum size for hex file: %s bytes" % MAX_SIZE
   
   env.Command(None, BUILD_DIR + TARGET+'.hex', AVR_BIN_PREFIX+'size --target=ihex $SOURCE')
-
+  
   # Reset
   def pulseDTR(target, source, env):
       import serial
