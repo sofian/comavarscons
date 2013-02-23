@@ -333,11 +333,15 @@ if platform == 'arduino':
   # Override MCU and F_CPU
   MCU = resolve_var('MCU', getBoardConf('build.mcu'))
   F_CPU = resolve_var('F_CPU', getBoardConf('build.f_cpu'))
-  UPLOAD_PROTOCOL = getBoardConf('upload.protocol')
-  UPLOAD_SPEED = getBoardConf('upload.speed')
+  # Override fuses
   LOW_FUSES = getBoardConf('bootloader.low_fuses')
   HIGH_FUSES = getBoardConf('bootloader.high_fuses')
   EXTENDED_FUSES = getBoardConf('bootloader.extended_fuses')
+
+  # Upload speed and protocol can be changed by the user
+  UPLOAD_PROTOCOL = resolve_var('UPLOAD_PROTOCOL', getBoardConf('upload.protocol'))
+  UPLOAD_SPEED = resolve_var('UPLOAD_SPEED', getBoardConf('upload.speed'))
+
   sketchExt = '.ino' if path.exists(TARGET + '.ino') else '.pde'
 
 # Get sources #########################################################################
