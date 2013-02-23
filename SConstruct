@@ -242,7 +242,7 @@ CPPFLAGS = toList(resolve_var('CPPFLAGS', ''), ',')
 if platform != 'computer':
   AVR_BIN_PREFIX = path.join(AVR_GCC_PATH, 'avr-');
   UPLOAD_PROTOCOL = resolve_var('UPLOAD_PROTOCOL', 'stk500')
-  UPLOAD_SPEED = resolve_var('UPLOAD_PROTOCOL', 57600)
+  UPLOAD_SPEED = resolve_var('UPLOAD_SPEED', 57600)
 
 # Define build directory.
 BUILD_DIR  = "build/"
