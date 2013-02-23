@@ -335,6 +335,9 @@ if platform == 'arduino':
   F_CPU = resolve_var('F_CPU', getBoardConf('build.f_cpu'))
   UPLOAD_PROTOCOL = getBoardConf('upload.protocol')
   UPLOAD_SPEED = getBoardConf('upload.speed')
+  LOW_FUSES = getBoardConf('bootloader.low_fuses')
+  HIGH_FUSES = getBoardConf('bootloader.high_fuses')
+  EXTENDED_FUSES = getBoardConf('bootloader.extended_fuses')
   sketchExt = '.ino' if path.exists(TARGET + '.ino') else '.pde'
 
 # Get sources #########################################################################
