@@ -498,14 +498,20 @@ if (platform == 'avr' or platform == 'arduino'):
     
     avrdudeOpts = ['-V', '-F', '-c %s' % UPLOAD_PROTOCOL, '-b %s' % UPLOAD_SPEED,
                    '-p %s' % MCU, '-P %s' % AVRDUDE_PORT, '-U flash:w:$SOURCES']
+    avrdudeFuseOpts = [ '-U lfuse:w:%s:m' % LOW_FUSES, '-U hfuse:w:%s:m' % HIGH_FUSES, '-U efuse:w:%s:m' % EXTENDED_FUSES ]
+
     if AVRDUDE_CONF:
         avrdudeOpts.append('-C %s' % AVRDUDE_CONF)
     
-    fuse_cmd = '%s %s' % (path.join(path.dirname(AVR_BIN_PREFIX), 'avrdude'),
+    upload_cmd = '%s %s' % (path.join(path.dirname(AVR_BIN_PREFIX), 'avrdude'),
                           ' '.join(avrdudeOpts))
-    
-    upload = env.Alias('upload', BUILD_DIR + TARGET + '.hex', [reset_cmd, fuse_cmd])
+
+    fuse_cmd = '%s %s' % (upload_cmd, ' '.join(avrdudeFuseOpts))
+  
+    upload = env.Alias('upload', BUILD_DIR + TARGET + '.hex', [reset_cmd, upload_cmd])
+    upload_fuses = env.Alias('upload-fuses', BUILD_DIR + TARGET + '.hex', [fuse_cmd])
     env.AlwaysBuild(upload)
+    env.AlwaysBuild(upload_fuses)
 
 # Computer mode (ie. non-avr) #########################################################
 else:
