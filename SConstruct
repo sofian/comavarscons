@@ -30,6 +30,14 @@ def unique(seq, keepstr=True):
   seen = []
   return t(c for c in seq if not (c in seen or seen.append(c)))
 
+def duplicates(seq):
+  seen = set()
+  seen_add = seen.add
+  # adds all elements it doesn't know yet to seen and all other to seen_twice
+  seen_twice = set( x for x in seq if x in seen or seen_add(x) )
+  # turn the set into a list (as requested)
+  return list( seen_twice )
+
 VARTAB = {}
 CONFIG = {}
 
@@ -426,16 +434,24 @@ if (platform == 'avr' or platform == 'arduino'):
     # implicitly on the SPI library.
     if ARDUINO_VER >= 20 and 'Ethernet' in libCandidates:
         libCandidates.append('SPI')
+
+    libCandidatesDuplicates = duplicates(libCandidates)
+    if (len(libCandidatesDuplicates) > 0):
+      print "WARNING: duplicate libraries: " + ",".join(libCandidatesDuplicates)
+      print "Only one library will be included, parsing the libraries folder in the following order: " + ",".join(ARDUINO_LIBS)
     
+    libCandidates = unique(libCandidates)
+    libCandidatesSet = set(libCandidates)
+
     all_libs_sources = []
     for index, orig_lib_dir in enumerate(ARDUINO_LIBS):
         lib_dir = BUILD_DIR + 'lib_%02d' % index
         env.VariantDir(lib_dir, orig_lib_dir)
         for libPath in ifilter(path.isdir, glob(path.join(orig_lib_dir, '*'))):
             libName = path.basename(libPath)
-            if not libName in libCandidates:
+            if not libName in libCandidatesSet:
                 continue
-            print libName
+            libCandidatesSet.remove(libName) # remove from set
             env.Append(CPPPATH = libPath.replace(orig_lib_dir, lib_dir))
             lib_sources = gatherSources(libPath)
             utilDir = path.join(libPath, 'utility')
