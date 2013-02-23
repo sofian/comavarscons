@@ -149,7 +149,7 @@ platform = ARGUMENTS.get("platform", "computer")
 mode     = ARGUMENTS.get("mode", "release")
 
 # Import settings
-CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBRARIES_PATH', 'ARDUINO_EXTRA_LIBRARIES', 'RST_TRIGGER', 'AVRDUDE_CONF', 'EXTRA_SOURCES']
+CONFIG_VARS = ['TARGET', 'MCU', 'F_CPU', 'AVR_GCC_PATH', 'INCPATH', 'LIBPATH', 'SRCPATH', 'LIBS', 'ARDUINO_BOARD', 'ARDUINO_HOME', 'AVRDUDE_PORT', 'ARDUINO_SKETCHBOOK_HOME', 'ARDUINO_VER', 'ARDUINO_EXTRA_LIBRARIES_PATH', 'ARDUINO_EXTRA_LIBRARIES', 'RST_TRIGGER', 'AVRDUDE_CONF', 'EXTRA_SOURCES', 'CPPFLAGS']
 for k in CONFIG_VARS:
   CONFIG[k] = None
 
@@ -215,6 +215,8 @@ LIBPATH = filter(None, LIBPATH)
 
 # Source path.
 SRCPATH = resolve_var('SRCPATH', "").split(':');
+# CPP extra flags / paths
+CPPFLAGS = toList(resolve_var('CPPFLAGS', ''), ',')
 
 # There should be a file with the same name as the folder and with the extension .pde
 #TARGET = os.path.basename(os.path.realpath(os.curdir))
@@ -336,6 +338,8 @@ if (platform == 'avr' or platform == 'arduino'):
   cFlags = ['-ffunction-sections', '-fdata-sections', '-fno-exceptions',
             '-funsigned-char', '-funsigned-bitfields', '-fpack-struct', '-fshort-enums',
             '-Os', '-mmcu=%s'%MCU]
+  cFlags += CPPFLAGS
+
   cppDefines = { 'F_CPU': F_CPU }
   if platform == 'arduino':
     cppDefines['ARDUINO'] = ARDUINO_VER
@@ -396,6 +400,7 @@ if (platform == 'avr' or platform == 'arduino'):
     
     # add libraries
     libCandidates = ARDUINO_EXTRA_LIBRARIES.split(",")
+
     ptnLib = re.compile(r'^[ ]*#[ ]*include [<"](.*)\.h[>"]')
     for line in open(TARGET + sketchExt):
         result = ptnLib.search(line)
@@ -485,6 +490,7 @@ else:
     env.Append(CPPFLAGS=['-Wall', '-g', '-DDEBUG=1'])
   else:
     env.Append(CPPFLAGS=['-O2'])
+  env.Append(CPPFLAGS=CPPFLAGS)
 
   env.VariantDir(BUILD_DIR, ".", duplicate=0)
   sources += Glob(BUILD_DIR + "*.cpp")
