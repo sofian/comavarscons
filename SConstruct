@@ -55,6 +55,14 @@ def resolve_var(varname, default_value):
         VARTAB[varname] = ('dfl', ret)
     return ret
 
+def toList(var, separator):
+  if (type(var) is list):
+    return var
+  elif (type(var) is str):
+    return var.split(separator)
+  else:
+    exit("Variable has wrong type " + type(var) + ".")
+    
 def getUsbTty(rx):
     usb_ttys = glob(rx)
     return usb_ttys[0] if len(usb_ttys) == 1 else None
@@ -197,7 +205,7 @@ if platform != 'computer':
       AVRDUDE_PORT        = resolve_var('AVRDUDE_PORT', getUsbTty('/dev/ttyUSB*'))
 
 # Basic compilation arguments.
-INCPATH = resolve_var('INCPATH', "").split(":")
+INCPATH = toList(resolve_var('INCPATH', ""), ':')
 INCPATH = unique(INCPATH + [os.getcwd()])
 
 # AVR arguments
@@ -205,8 +213,8 @@ MCU   = resolve_var('MCU', "atmega168")
 F_CPU = resolve_var('F_CPU', 16000000)
 
 # Shared library arguments.
-LIBS = resolve_var('LIBS', "").split(',')
-LIBPATH = resolve_var('LIBPATH', "").split(':')
+LIBS = toList(resolve_var('LIBS', ""), ',')
+LIBPATH = toList(resolve_var('LIBPATH', ""), ':')
 LIBS += ["m"]
 
 # Remove empty items
@@ -214,7 +222,8 @@ LIBS = filter(None, LIBS)
 LIBPATH = filter(None, LIBPATH)
 
 # Source path.
-SRCPATH = resolve_var('SRCPATH', "").split(':');
+SRCPATH = toList(resolve_var('SRCPATH', ""), ':')
+
 # CPP extra flags / paths
 CPPFLAGS = toList(resolve_var('CPPFLAGS', ''), ',')
 
