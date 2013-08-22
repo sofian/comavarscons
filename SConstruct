@@ -111,7 +111,9 @@ def fnProcessing(target, source, env):
 
     prototypes = {}
 
-    for file in glob(path.realpath(os.curdir) + "/*" + sketchExt):
+    # XXX: Originally ried to declare all functions from ALL the .pde/.ino together
+    # for file in glob(path.realpath(os.curdir) + "/*" + sketchExt):
+    for file in glob(path.realpath(os.curdir) + "/" + TARGET + sketchExt):
         for line in open(file):
             result = re_signature.search(line)
             if result:
@@ -388,7 +390,7 @@ if (platform == 'avr' or platform == 'arduino'):
   env.Append(BUILDERS = {'CompressCore': Builder(action = fnCompressCore)})
   env.Append(BUILDERS = {'Elf': Builder(action = AVR_BIN_PREFIX+'gcc -mmcu=%s ' % MCU +
                                 '-Os -Wl,--gc-sections,--relax -o $TARGET $SOURCES ' + 
-                                 libPathFlags + ' ' + libFlags)})
+                                 libPathFlags + ' ' + libFlags + ' ' + path.join(BUILD_DIR, 'core.a'))})
   env.Append(BUILDERS = {'Hex': Builder(action = AVR_BIN_PREFIX+'objcopy ' +
                                 '-O ihex -R .eeprom $SOURCES $TARGET')})
   
